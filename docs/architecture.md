@@ -12,7 +12,7 @@ flowchart LR
         B["Backend API REST<br/>Node.js + Express<br/>hébergé sur Render"]
     end
     subgraph T3["Tier 3 - Données"]
-        D[("MySQL 8<br/>table tickets<br/>WAMP en local / hébergeur en ligne")]
+        D[("MySQL 8<br/>table tickets<br/>hébergé sur Aiven")]
     end
     G["GitHub<br/>code source"]
 
@@ -28,7 +28,7 @@ Version texte :
 ```
                        HTTPS                    HTTPS / JSON                 SQL (SSL)
  Utilisateur  ───────────────────>  Frontend  ───────────────────>  Backend  ─────────────>  MySQL
- (navigateur)                       (Vercel)                        (Render)                 (hébergeur MySQL)
+ (navigateur)                       (Vercel)                        (Render)                 (Aiven)
                                         ▲                               ▲
                                         └────────── GitHub ─────────────┘
                                           (push => redéploiement auto CI/CD)
@@ -40,7 +40,7 @@ Version texte :
 |------|-----------|------|-------------|
 | Présentation | Frontend | Affiche les tickets, formulaire de création, changement de statut | Vercel |
 | Logique métier | Backend (API) | Reçoit les requêtes HTTP, valide les données, accède à la base | Render |
-| Données | MySQL 8 | Stocke les tickets de façon persistante | WAMP en local, hébergeur MySQL en ligne |
+| Données | MySQL 8 | Stocke les tickets de façon persistante | Aiven (WampServer en local) |
 | Code source | Dépôt Git | Versionnement, déclenche les déploiements | GitHub |
 
 ## Sécurité

@@ -2,7 +2,7 @@
 
 Application web permettant aux collaborateurs de **déclarer un incident**, **consulter les demandes** et **suivre leur résolution** (statuts : Ouvert, En cours, Résolu).
 
-Projet réalisé dans le cadre du TP « Mise en production » : architecture trois tiers déployée sur Vercel (frontend), Render (API) et un hébergeur MySQL (base de données).
+Projet réalisé dans le cadre du TP « Mise en production » : architecture trois tiers déployée sur Vercel (frontend), Render (API) et Aiven (base de données MySQL).
 
 ## Architecture
 
@@ -10,15 +10,21 @@ Projet réalisé dans le cadre du TP « Mise en production » : architecture tro
 |------|-------------|-------------|
 | Frontend | Vite + JavaScript | Vercel |
 | Backend (API) | Node.js + Express | Render |
-| Base de données | MySQL 8 | WampServer en local, _hébergeur en ligne à compléter_ |
+| Base de données | MySQL 8 | Aiven (WampServer en local) |
 | Code source | Git | GitHub |
 
 Schéma détaillé : [docs/architecture.md](docs/architecture.md)
 
 ## Liens
 
-- Frontend : _à compléter_
-- API : _à compléter_ (test : `<URL_API>/health`)
+| Service | URL publique |
+|---------|--------------|
+| Frontend (Vercel) | https://tp-deploiement-frontend.vercel.app |
+| API (Render) | https://hebergement-om3e.onrender.com |
+| Vérification de l'API | https://hebergement-om3e.onrender.com/health |
+| Liste des tickets (JSON) | https://hebergement-om3e.onrender.com/api/tickets |
+
+> Offre gratuite Render : si l'API était en veille, le premier chargement peut prendre jusqu'à environ 1 minute.
 
 ## Structure du dépôt
 
@@ -77,10 +83,14 @@ npm run dev              # http://localhost:5173
 
 ## Déploiement
 
-### 1. Base de données — MySQL en ligne
-1. Créer une base MySQL 8 chez un hébergeur accessible depuis Internet (ex. Aiven, offre gratuite).
-2. Se connecter à cette base avec **DBeaver** (hôte, port, utilisateur, mot de passe fournis par l'hébergeur, SSL activé) et exécuter `backend/sql/schema.sql`.
-3. Construire l'URL de connexion : `mysql://UTILISATEUR:MOT_DE_PASSE@HOTE:PORT/NOM_BASE`
+### 1. Base de données — Aiven (MySQL)
+Supabase ne proposant que PostgreSQL, la base MySQL est hébergée sur **Aiven** (offre gratuite, connexion SSL obligatoire).
+
+1. Se connecter à https://console.aiven.io (compte GitHub), créer un service **MySQL** en offre gratuite et attendre l'état *Running*.
+2. Récupérer les paramètres de connexion (onglet *Overview*) : hôte, port, utilisateur, mot de passe, base `defaultdb`.
+3. Dans **DBeaver** : nouvelle connexion MySQL avec ces paramètres, onglet *SSL* → « Utiliser SSL », tester la connexion.
+4. Ouvrir un éditeur SQL sur la base `defaultdb` et exécuter `backend/sql/schema.sql` (création de la table `tickets` + 3 tickets d'exemple).
+5. URL de connexion pour le backend : copier la *Service URI* d'Aiven, de la forme `mysql://UTILISATEUR:MOT_DE_PASSE@HOTE:PORT/defaultdb`. Elle n'est renseignée **que** dans les variables d'environnement de Render.
 
 > **Pièges fréquents**
 > - Si le mot de passe contient des caractères spéciaux, les encoder dans l'URL (`@` → `%40`, `#` → `%23`, `/` → `%2F`, `:` → `%3A`).
@@ -90,16 +100,16 @@ npm run dev              # http://localhost:5173
 **Ordre de configuration** : l'API a besoin de l'URL du frontend (`CORS_ORIGIN`) et le frontend de l'URL de l'API (`VITE_API_URL`). Déployer l'API, puis le frontend avec `VITE_API_URL`, puis renseigner `CORS_ORIGIN` sur Render avec l'URL Vercel obtenue.
 
 ### 2. Backend — Render
-Créer un **Web Service** relié au dépôt GitHub :
+Service **Web Service** (offre gratuite) créé à partir du dépôt GitHub :
 
 | Paramètre | Valeur |
 |-----------|--------|
-| Branch | `main` |
+| Branch | `dev` |
 | Root Directory | `backend` |
 | Runtime | Node |
 | Build Command | `npm install` |
-| Start Command | `npm start` |
-| Health Check Path | `/health` |
+| Start Command | `node src/server.js` (équivalent à `npm start`) |
+| Port | fourni automatiquement par Render via `PORT` (10000) |
 
 Variables d'environnement (onglet **Environment**) :
 
@@ -107,26 +117,39 @@ Variables d'environnement (onglet **Environment**) :
 |----------|--------|
 | `DATABASE_URL` | URL de connexion MySQL en ligne (**secret**) |
 | `DATABASE_SSL` | `true` |
-| `CORS_ORIGIN` | URL du frontend Vercel, ex. `https://mon-projet.vercel.app` (sans `/` final) |
+| `CORS_ORIGIN` | `https://tp-deploiement-frontend.vercel.app` (sans `/` final) |
 
-Vérifier : `https://<service>.onrender.com/health` doit renvoyer `{"status":"ok","stockage":"mysql"}`.
+Vérification : https://hebergement-om3e.onrender.com/health renvoie `{"status":"ok","stockage":"mysql"}`.
+
+> Si le dépôt n'apparaît pas dans la liste de Render (droits insuffisants sur le dépôt), il peut être importé via **Public Git Repository**. Dans ce cas, vérifier dans *Settings* que l'*Auto-Deploy* est bien actif (voir section 4).
 
 ### 3. Frontend — Vercel
-Créer un projet relié au dépôt GitHub :
+Déploiement réalisé avec la **CLI Vercel**, depuis la racine du dépôt :
+
+```bash
+npm i -g vercel                                        # installation de la CLI
+vercel login                                           # connexion au compte Vercel
+vercel --cwd frontend                                  # premier déploiement (Vite détecté automatiquement)
+vercel env add VITE_API_URL production --cwd frontend  # saisir l'URL de l'API : https://hebergement-om3e.onrender.com
+vercel --prod --cwd frontend                           # déploiement en production
+```
 
 | Paramètre | Valeur |
 |-----------|--------|
-| Root Directory | `frontend` |
-| Framework Preset | Vite (détecté automatiquement) |
-| Build Command | `npm run build` |
-| Output Directory | `dist` |
+| Framework | Vite (`npm run build`, dossier `dist`) |
+| `VITE_API_URL` | `https://hebergement-om3e.onrender.com` (sans `/` final) |
 
-Variable d'environnement : `VITE_API_URL` = URL de l'API Render (sans `/` final).
-
-> `VITE_API_URL` est intégrée au moment du build : après l'avoir modifiée, il faut **redéployer** le frontend.
+> `VITE_API_URL` est intégrée au moment du build : après l'avoir modifiée, il faut **redéployer** le frontend (`vercel --prod --cwd frontend`).
+>
+> Un déploiement fait avec la CLI n'est pas relié automatiquement à GitHub. Pour le redéploiement automatique, relier le projet au dépôt : *Settings → Git → Connect Git Repository*, avec **Root Directory = `frontend`**.
 
 ### 4. Redéploiement automatique (CI/CD)
-Chaque `git push` sur la branche `main` déclenche automatiquement un nouveau déploiement sur Render et Vercel.
+Lorsque les services sont reliés au dépôt GitHub, chaque `git push` sur la branche suivie déclenche automatiquement un nouveau build et un nouveau déploiement :
+
+- **Render** : redéploie l'API à chaque push sur la branche configurée (*Settings → Auto-Deploy*).
+- **Vercel** : redéploie le frontend à chaque push, une fois le projet relié au dépôt (*Settings → Git*).
+
+Test de redéploiement : modifier un élément visible (ex. le titre dans `frontend/index.html`), commit, push, observer le nouveau déploiement dans le tableau de bord, puis vérifier la modification sur le site public.
 
 ## Sécurité
 
@@ -139,4 +162,4 @@ Chaque `git push` sur la branche `main` déclenche automatiquement un nouveau d�
 ## Points d'attention (offres gratuites)
 
 - Render met le service en veille après 15 min d'inactivité : le premier appel peut prendre jusqu'à environ 1 minute.
-- Les offres MySQL gratuites ont des limites (stockage, connexions) et peuvent mettre en pause une base inactive.
+- L'offre gratuite d'Aiven a des limites (stockage, connexions) et peut mettre en pause un service inactif.
