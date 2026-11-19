@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suivi des demandes informatiques</title>
+  </head>
+  <body>
+    <header class="header">
+      <h1>Suivi des demandes informatiques</h1>
+      <p>Déclarez un incident et suivez sa résolution.</p>
+    </header>
+
+    <main class="container">
+      <section class="card">
+        <h2>Nouveau ticket</h2>
+        <form id="ticket-form" novalidate>
+          <label for="titre">Titre</label>
+          <input id="titre" name="titre" type="text" maxlength="200" required
+                 placeholder="Ex. : Imprimante en panne" />
+
+          <label for="description">Description</label>
+          <textarea id="description" name="description" rows="4" maxlength="5000" required
+                    placeholder="Décrivez le problème rencontré..."></textarea>
+
+          <button type="submit" id="submit-btn">Créer le ticket</button>
+          <p id="form-message" class="message" role="status"></p>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="list-header">
+          <h2>Tickets <span id="count" class="count"></span></h2>
+          <div class="filters">
+            <input id="search" type="search" placeholder="Rechercher..." aria-label="Rechercher" />
+            <select id="filter" aria-label="Filtrer par statut">
+              <option value="">Tous les statuts</option>
+              <option value="ouvert">Ouvert</option>
+              <option value="en_cours">En cours</option>
+              <option value="resolu">Résolu</option>
+            </select>
+          </div>
+        </div>
+        <p id="list-message" class="message" role="status"></p>
+        <ul id="ticket-list" class="ticket-list"></ul>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
