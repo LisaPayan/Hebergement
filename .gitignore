@@ -1,0 +1,15 @@
+# Dépendances
+node_modules/
+
+# Build du frontend
+dist/
+
+# Secrets : ne JAMAIS commiter les fichiers .env
+.env
+.env.*
+!.env.example
+
+# Divers
+*.log
+.DS_Store
+.vercel
