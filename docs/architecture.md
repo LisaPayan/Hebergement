@@ -12,7 +12,7 @@ flowchart LR
         B["Backend API REST<br/>Node.js + Express<br/>hébergé sur Render"]
     end
     subgraph T3["Tier 3 - Données"]
-        D[("PostgreSQL<br/>table tickets<br/>hébergé sur Supabase")]
+        D[("MySQL 8<br/>table tickets<br/>WAMP en local / hébergeur en ligne")]
     end
     G["GitHub<br/>code source"]
 
@@ -27,8 +27,8 @@ Version texte :
 
 ```
                        HTTPS                    HTTPS / JSON                 SQL (SSL)
- Utilisateur  ───────────────────>  Frontend  ───────────────────>  Backend  ─────────────>  PostgreSQL
- (navigateur)                       (Vercel)                        (Render)                 (Supabase)
+ Utilisateur  ───────────────────>  Frontend  ───────────────────>  Backend  ─────────────>  MySQL
+ (navigateur)                       (Vercel)                        (Render)                 (hébergeur MySQL)
                                         ▲                               ▲
                                         └────────── GitHub ─────────────┘
                                           (push => redéploiement auto CI/CD)
@@ -40,7 +40,7 @@ Version texte :
 |------|-----------|------|-------------|
 | Présentation | Frontend | Affiche les tickets, formulaire de création, changement de statut | Vercel |
 | Logique métier | Backend (API) | Reçoit les requêtes HTTP, valide les données, accède à la base | Render |
-| Données | PostgreSQL | Stocke les tickets de façon persistante | Supabase |
+| Données | MySQL 8 | Stocke les tickets de façon persistante | WAMP en local, hébergeur MySQL en ligne |
 | Code source | Dépôt Git | Versionnement, déclenche les déploiements | GitHub |
 
 ## Sécurité
@@ -50,4 +50,4 @@ Version texte :
 - L'API n'accepte les appels navigateur que depuis l'URL du frontend (CORS, variable `CORS_ORIGIN`).
 - Les données reçues sont validées par l'API, et les statuts sont aussi contrôlés par la base (`CHECK`).
 - Requêtes SQL paramétrées (protection contre l'injection SQL).
-- Row Level Security activé sur la table pour bloquer l'accès direct via l'API publique de Supabase.
+- La base n'est jamais appelée directement par le navigateur : DBeaver sert uniquement à l'administration.

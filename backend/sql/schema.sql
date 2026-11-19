@@ -1,17 +1,16 @@
--- Script de création de la base (à exécuter une fois dans Supabase > SQL Editor)
+-- Script de création de la table tickets (MySQL 8).
+-- À exécuter une fois dans DBeaver sur la base "tickets" (en local avec WAMP, puis sur la base en ligne).
+SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS tickets (
-  id          SERIAL PRIMARY KEY,
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   titre       VARCHAR(200) NOT NULL,
   description TEXT         NOT NULL,
-  statut      VARCHAR(20)  NOT NULL DEFAULT 'ouvert'
-              CHECK (statut IN ('ouvert', 'en_cours', 'resolu')),
-  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
-);
-
--- Sécurité Supabase : bloque l'accès direct à la table via l'API publique de Supabase
--- (clé "anon"). Seul notre backend, connecté avec l'utilisateur propriétaire, y accède.
-ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
+  statut      VARCHAR(20)  NOT NULL DEFAULT 'ouvert',
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  -- Contrôle des valeurs de statut par la base (MySQL 8.0.16 ou plus)
+  CONSTRAINT chk_statut CHECK (statut IN ('ouvert', 'en_cours', 'resolu'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Données de démonstration (facultatif)
 INSERT INTO tickets (titre, description, statut) VALUES

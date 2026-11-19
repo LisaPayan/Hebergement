@@ -2,7 +2,7 @@
 
 Application web permettant aux collaborateurs de **déclarer un incident**, **consulter les demandes** et **suivre leur résolution** (statuts : Ouvert, En cours, Résolu).
 
-Projet réalisé dans le cadre du TP « Mise en production » : architecture trois tiers déployée sur Vercel, Render et Supabase.
+Projet réalisé dans le cadre du TP « Mise en production » : architecture trois tiers déployée sur Vercel (frontend), Render (API) et un hébergeur MySQL (base de données).
 
 ## Architecture
 
@@ -10,7 +10,7 @@ Projet réalisé dans le cadre du TP « Mise en production » : architecture tro
 |------|-------------|-------------|
 | Frontend | Vite + JavaScript | Vercel |
 | Backend (API) | Node.js + Express | Render |
-| Base de données | PostgreSQL | Supabase |
+| Base de données | MySQL 8 | WampServer en local, _hébergeur en ligne à compléter_ |
 | Code source | Git | GitHub |
 
 Schéma détaillé : [docs/architecture.md](docs/architecture.md)
@@ -25,7 +25,7 @@ Schéma détaillé : [docs/architecture.md](docs/architecture.md)
 ```
 backend/            API REST
   src/server.js     routes, validation, CORS
-  src/db.js         accès PostgreSQL (ou mémoire si pas de base)
+  src/db.js         accès MySQL (ou mémoire si pas de base)
   sql/schema.sql    création de la table tickets
 frontend/           interface utilisateur
   index.html
@@ -48,15 +48,22 @@ Toutes les réponses sont en JSON.
 
 ## Lancer le projet en local
 
-Prérequis : Node.js 18 ou plus.
+Prérequis : Node.js 18 ou plus, WampServer (MySQL 8) et DBeaver.
+
+**Base de données (WampServer + DBeaver)**
+1. Lancer WampServer et attendre que l'icône soit verte (MySQL écoute sur le port 3306).
+2. Dans DBeaver : nouvelle connexion **MySQL**, hôte `localhost`, port `3306`, utilisateur `root` (sans mot de passe par défaut avec WAMP).
+3. Créer la base : `CREATE DATABASE tickets CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
+4. Sélectionner la base `tickets`, ouvrir `backend/sql/schema.sql` et l'exécuter comme script (Alt+X).
 
 **Backend**
 ```bash
 cd backend
 npm install
-cp .env.example .env     # puis remplir DATABASE_URL (sinon : stockage en mémoire)
+cp .env.example .env     # DATABASE_URL=mysql://root@localhost:3306/tickets
 npm run dev              # http://localhost:3000
 ```
+Vérifier : http://localhost:3000/health doit renvoyer `{"status":"ok","stockage":"mysql"}`.
 
 **Frontend** (dans un autre terminal)
 ```bash
@@ -70,11 +77,17 @@ npm run dev              # http://localhost:5173
 
 ## Déploiement
 
-### 1. Base de données — Supabase
-1. Créer un projet Supabase (noter le mot de passe de la base).
-2. **SQL Editor** : exécuter le contenu de `backend/sql/schema.sql`.
-3. **Connect** (ou Project Settings > Database) : copier la chaîne de connexion **Session pooler** (compatible IPv4, nécessaire pour Render), sous la forme
-   `postgresql://postgres.<ref>:<MOT_DE_PASSE>@aws-0-<region>.pooler.supabase.com:5432/postgres`
+### 1. Base de données — MySQL en ligne
+1. Créer une base MySQL 8 chez un hébergeur accessible depuis Internet (ex. Aiven, offre gratuite).
+2. Se connecter à cette base avec **DBeaver** (hôte, port, utilisateur, mot de passe fournis par l'hébergeur, SSL activé) et exécuter `backend/sql/schema.sql`.
+3. Construire l'URL de connexion : `mysql://UTILISATEUR:MOT_DE_PASSE@HOTE:PORT/NOM_BASE`
+
+> **Pièges fréquents**
+> - Si le mot de passe contient des caractères spéciaux, les encoder dans l'URL (`@` → `%40`, `#` → `%23`, `/` → `%2F`, `:` → `%3A`).
+> - Si l'hébergeur fournit une URL se terminant par `?ssl-mode=REQUIRED` (ex. Aiven), **retirer** ce paramètre et définir `DATABASE_SSL=true` à la place.
+> - La base locale WAMP n'est pas accessible depuis Internet : Render doit utiliser une base MySQL hébergée en ligne.
+
+**Ordre de configuration** : l'API a besoin de l'URL du frontend (`CORS_ORIGIN`) et le frontend de l'URL de l'API (`VITE_API_URL`). Déployer l'API, puis le frontend avec `VITE_API_URL`, puis renseigner `CORS_ORIGIN` sur Render avec l'URL Vercel obtenue.
 
 ### 2. Backend — Render
 Créer un **Web Service** relié au dépôt GitHub :
@@ -92,10 +105,11 @@ Variables d'environnement (onglet **Environment**) :
 
 | Variable | Valeur |
 |----------|--------|
-| `DATABASE_URL` | chaîne de connexion Supabase (**secret**) |
+| `DATABASE_URL` | URL de connexion MySQL en ligne (**secret**) |
+| `DATABASE_SSL` | `true` |
 | `CORS_ORIGIN` | URL du frontend Vercel, ex. `https://mon-projet.vercel.app` (sans `/` final) |
 
-Vérifier : `https://<service>.onrender.com/health` doit renvoyer `{"status":"ok","stockage":"postgres"}`.
+Vérifier : `https://<service>.onrender.com/health` doit renvoyer `{"status":"ok","stockage":"mysql"}`.
 
 ### 3. Frontend — Vercel
 Créer un projet relié au dépôt GitHub :
@@ -125,4 +139,4 @@ Chaque `git push` sur la branche `main` déclenche automatiquement un nouveau d�
 ## Points d'attention (offres gratuites)
 
 - Render met le service en veille après 15 min d'inactivité : le premier appel peut prendre jusqu'à environ 1 minute.
-- Supabase met en pause les projets gratuits inactifs pendant plusieurs jours.
+- Les offres MySQL gratuites ont des limites (stockage, connexions) et peuvent mettre en pause une base inactive.
